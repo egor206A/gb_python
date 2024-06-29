@@ -1,26 +1,58 @@
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score
+import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.datasets import load_boston
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.manifold import TSNE
+from sklearn.cluster import KMeans
 
-# Предположим, что у вас есть данные X и y
-# X - ваши признаки
-# y - ваши целевые значения
+# Загрузка данных
+boston = load_boston()
+data = boston.data
+target = boston.target
+feature_names = boston.feature_names
 
-# Разделите данные на обучающий и тестовый наборы
+# Создание датафреймов X и y
+X = pd.DataFrame(data, columns=feature_names)
+y = pd.DataFrame(target, columns=['PRICE'])
+
+# Разбиение на тренировочные и тестовые данные
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Инициализируйте и обучите модель линейной регрессии
-model = LinearRegression()
-model.fit(X_train, y_train)
+# Масштабирование данных
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
 
-# Сделайте предсказания на тестовом наборе данных
-y_pred = model.predict(X_test)
+# Построение модели TSNE
+tsne = TSNE(n_components=2, learning_rate=250, random_state=42)
+X_train_tsne = tsne.fit_transform(X_train_scaled)
 
-# Вычислите коэффициент детерминации R2
-r2 = r2_score(y_test, y_pred)
+# Построение диаграммы рассеяния
+plt.scatter(X_train_tsne[:, 0], X_train_tsne[:, 1])
+plt.title('TSNE Scatter Plot')
+plt.show()
 
-if r2 > 0.6:
-    print("Коэффициент детерминации R2 больше 0.6:", r2)
-else:
-    print("Коэффициент детерминации R2 меньше или равен 0.6:", r2)
+# Использование KMeans для разбиения на кластеры
+kmeans = KMeans(n_clusters=3, max_iter=100, random_state=42)
+clusters = kmeans.fit_predict(X_train_scaled)
+
+# Построение диаграммы рассеяния с раскраской точек из разных кластеров
+plt.scatter(X_train_tsne[:, 0], X_train_tsne[:, 1], c=clusters)
+plt.title('TSNE Scatter Plot with KMeans Clusters')
+plt.show()
+
+# Вычисление средних значений price и CRIM в разных кластерах
+X_train['Cluster'] = clusters
+cluster_means = X_train.groupby('Cluster').agg({'PRICE': 'mean', 'CRIM': 'mean'})
+print(cluster_means)
+
+# Применение модели KMeans к данным из тестового набора
+test_clusters = kmeans.predict(X_test_scaled)
+
+# Вычисление средних значений price и CRIM в разных кластерах на тестовых данных
+X_test['Cluster'] = test_clusters
+test_cluster_means = X_test.groupby('Cluster').agg({'PRICE': 'mean', 'CRIM': 'mean'})
+print(test_cluster_means)
+
